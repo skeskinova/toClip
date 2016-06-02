@@ -1,8 +1,6 @@
 package com.example.simona.toclip.view;
 
 import android.content.Intent;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.support.v4.app.Fragment;
 import android.os.Bundle;
@@ -15,6 +13,7 @@ import android.widget.TextView;
 import com.example.simona.toclip.R;
 import com.example.simona.toclip.helpers.Helper;
 
+import java.io.File;
 import java.util.ArrayList;
 
 /**
@@ -22,10 +21,13 @@ import java.util.ArrayList;
  */
 public class SendToFragment extends Fragment {
     private Button mOk;
+    private Button mCancel;
     private TextView mTextViewFileName;
-    private Bitmap mImage;
+    private File mFile;
     private String mFileName;
+    private long mFileSize;
     public static SendImages sendImages;
+    private TextView mTextViewFileSize;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -58,12 +60,15 @@ public class SendToFragment extends Fragment {
     }
 
     void handleSendImage(Intent intent) {
-        Uri imageUri = (Uri) intent.getParcelableExtra(Intent.EXTRA_STREAM);
+        Uri imageUri = intent.getParcelableExtra(Intent.EXTRA_STREAM);
         if (imageUri != null) {
             String path = Helper.getPath(getContext(), imageUri);
 
-            mFileName = path.substring(path.lastIndexOf("/")+1);
-            mImage = BitmapFactory.decodeFile(path);
+            mFile = new File(path);
+
+            mFileName = mFile.getName();
+            mFileSize = mFile.length() / (1024);
+            //mImage = BitmapFactory.decodeFile(path);
         }
     }
 
@@ -80,22 +85,27 @@ public class SendToFragment extends Fragment {
         View v = inflater.inflate(R.layout.fragment_send_to, container, false);
         mOk = (Button) v.findViewById(R.id.button_ok);
         mTextViewFileName = (TextView) v.findViewById(R.id.text_view_file);
-        //mTextViewFileSize = (TextView) v.findViewById(R.id.text_view_size);
-
+        mTextViewFileSize = (TextView) v.findViewById(R.id.text_view_file_size);
+        mCancel = (Button) v.findViewById(R.id.button_cancel);
         mTextViewFileName.setText(mFileName);
+        mTextViewFileSize.setText(String.valueOf(mFileSize) + " KB");
 
         mOk.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (mImage != null) {
+                if (mFile != null) {
                     if (sendImages != null) {
-                        sendImages.sendImage(mImage, mFileName);
+                        sendImages.sendImage(mFile, mFileName);
                         getActivity().finish();
                     }
-//                    Intent intent = new Intent(getActivity(), ChooseReceiverActivity.class);
-//                    intent.putExtra("image", imageToByteArray(mImage));
-//                    startActivity(intent);
                 }
+            }
+        });
+
+        mCancel.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                getActivity().finish();
             }
         });
 
@@ -103,6 +113,6 @@ public class SendToFragment extends Fragment {
     }
 
     public interface SendImages {
-        public void sendImage(Bitmap bitmap, String fileName);
+        void sendImage(File file, String fileName);
     }
 }

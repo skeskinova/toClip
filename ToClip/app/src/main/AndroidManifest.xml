@@ -39,8 +39,7 @@
                 <data android:mimeType="image/*" />
             </intent-filter>
         </activity>
-        <activity android:name=".view.ChooseReceiverActivity"
-            android:label="@string/title_send" />
+
         <service android:name="ToClipService" />
     </application>
 

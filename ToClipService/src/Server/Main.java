@@ -1,6 +1,5 @@
 package Server;
 
-import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
@@ -11,26 +10,16 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.Charset;
 
-import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 
 import java.awt.datatransfer.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.awt.image.BufferedImage;
-import java.awt.image.ColorModel;
-import java.awt.image.ComponentColorModel;
-import java.awt.image.DataBuffer;
-import java.awt.image.DataBufferByte;
-import java.awt.image.Raster;
 import java.awt.AWTException;
 import java.awt.Desktop;
-import java.awt.Image;
 import java.awt.SystemTray;
 import java.awt.Toolkit;
-import java.awt.Transparency;
 import java.awt.TrayIcon;
-import java.awt.color.ColorSpace;
 
 public class Main {
 	
@@ -81,6 +70,7 @@ public class Main {
 				try {
 					while (isStarted) {
 						serverSocket = new ServerSocket(4444); // Server socket
+						serverSocket.setReceiveBufferSize(104857600);
 					}
 
 				} catch (IOException e) {
@@ -96,61 +86,67 @@ public class Main {
 						in = new DataInputStream(clientSocket.getInputStream());
 												
 						while (true) {
-                            int size = in.readInt();
+                        	int type = in.readInt();
+                        	switch (type) {
+                        	case 1 :
+                        		int messSize = in.readInt();
 
-                            if (size > 0)
-                            {
-                            	int type = in.readInt();
-                            	switch (type) {
-                            	case 1 :
-                            		byte[] inMessage = new byte[size];
-                                    in.read(inMessage);
-                                    
-                                    String mess = new String(inMessage,"UTF-8");
-                                    
-                                    StringSelection str = new StringSelection(mess);
-                                    clpbrd.setContents(str, null);
-                                    isPasted = true;
-                            		break;
-                            	case 2:
-                            		byte[] inImage = new byte[size];
-                            		in.read(inImage);
-                            		
-                            		int fNameSize = in.readInt();
-                            		byte[] inFileName = new byte[fNameSize];
-                                    in.read(inFileName);
-                                    
-                                    String fileName = new String(inFileName,"UTF-8");
-                            		
-                            		String home = System.getProperty("user.home");
-                            		String path = home.replace("\\", "/")+"/Downloads/" + fileName;
-                            		
-                            		File file = new File(path);
-                            		if(!file.exists()) {
-                            			file.createNewFile();
-                            		} 
-                            		
-                            		OutputStream out = new FileOutputStream(file, false);
-                            		out.write(inImage);
-                            		out.close();
-                            		
-                            	    try {
-                            	        if (Desktop.isDesktopSupported()) {
-                            	          Desktop.getDesktop().open(file);
-                            	        }
-                            	      } catch (IOException ioe) {
-                            	        ioe.printStackTrace();
-                            	     }
-                            	    
-//                            		}
-//                            		catch (Exception e){
-//                            			System.out.println("exception : " + e.getMessage());
-//                            		}
-                            	                                	    
-                            		break;
-                            	}
-                                
-                            }
+                                if (messSize > 0) {
+	                        		byte[] inMessage = new byte[messSize];
+	                                in.read(inMessage);
+	                                
+	                                String mess = new String(inMessage,"UTF-8");
+	                                
+	                                StringSelection str = new StringSelection(mess);
+	                                clpbrd.setContents(str, null);
+	                                isPasted = true;
+                                }
+                        		break;
+                        	case 2:
+                        		int size = in.readInt();
+
+                                if (size > 0) {
+	                        		byte[] inFileName = new byte[size];
+	                                in.read(inFileName);
+	                                
+	                                String fileName = new String(inFileName,"UTF-8");
+	                        		
+	                        		String home = System.getProperty("user.home");
+	                        		String path = home.replace("\\", "/")+"/Downloads/" + fileName;
+	                        		
+	                        		File file = new File(path);
+	                        		if(!file.exists()) {
+	                        			file.createNewFile();
+	                        		} 
+	                        		
+	                        		OutputStream out = new FileOutputStream(file, false);
+	                        		int partSize = in.readInt();
+	                        		
+	                        		while (partSize != -1) {
+	                        			byte[] b = new byte[partSize];
+	                        			in.read(b);
+	                        			out.write(b);
+	                        			partSize = in.readInt();
+	                        		}
+	                        		
+	                        		out.close();
+	                        		
+	                        	    try {
+	                        	        if (Desktop.isDesktopSupported()) {
+	                        	          Desktop.getDesktop().open(file);
+	                        	        }
+	                        	      } catch (IOException ioe) {
+	                        	        ioe.printStackTrace();
+	                        	     }
+	                        	    
+	//                            		}
+	//                            		catch (Exception e){
+	//                            			System.out.println("exception : " + e.getMessage());
+	//                            		}
+                                }
+                        	                                	    
+                        		break;
+                        	}
                         }
 					} 
 					catch (IOException ex) {
@@ -164,7 +160,6 @@ public class Main {
 								out.close();
 								clientSocket.close();
 							} catch (IOException e) {
-								// TODO Auto-generated catch block
 								e.printStackTrace();
 							}								
 						}						

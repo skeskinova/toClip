@@ -6,24 +6,23 @@ import android.content.ClipboardManager;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.media.Image;
 import android.os.Handler;
 import android.os.IBinder;
 import android.util.Log;
 import android.widget.Toast;
 
-import com.example.simona.toclip.view.ChooseReceiverFragment;
 import com.example.simona.toclip.view.SendToFragment;
 
-import java.io.ByteArrayOutputStream;
+import java.io.BufferedInputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.SocketAddress;
 import java.nio.charset.Charset;
 
 public class ToClipService extends Service {
@@ -50,26 +49,36 @@ public class ToClipService extends Service {
         // Let it continue running until it is stopped.
         SendToFragment.sendImages = new SendToFragment.SendImages() {
             @Override
-            public void sendImage(Bitmap bitmap, String fileName) {
+            public void sendImage(File file, String fileName) {
                 if (!isStarted) {
                     return;
                 }
 
                 if (out != null) {
                     try {
-                        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, baos);
-                        byte[] b = baos.toByteArray();
-
-                        out.writeInt(b.length);
-                        out.writeInt(2);
-
-                        out.write(b); // write the image to output stream
+                        out.writeInt(2); // send type 2 - file
 
                         byte[] bName = fileName.getBytes(UTF8_CHARSET);
-                        out.writeInt(bName.length);
-                        out.write(bName);
+                        out.writeInt(bName.length); // send fileName size
+                        out.write(bName); //send file name
+                        out.flush();
 
+                        byte[] bytes = new byte[1024];
+                        FileInputStream inputStream = new FileInputStream(file);
+                        BufferedInputStream bis = new BufferedInputStream(inputStream);
+
+                        int b = -1;
+                        int count = 1;
+
+                        b = bis.read(bytes);
+                        while (b > -1) {
+                            out.writeInt(b);
+                            out.write(bytes, 0, b);
+                            b = bis.read(bytes);
+                            count += 1;
+                        }
+
+                        out.writeInt(b);
                         out.flush();
                     } catch (IOException e) {
                         Log.e(">>>", "Error", e);
@@ -195,9 +204,10 @@ public class ToClipService extends Service {
 
                     if (out != null) {
                         try {
+                            out.writeInt(1);
+
                             byte[] b = message.getBytes(UTF8_CHARSET);
                             out.writeInt(b.length);
-                            out.writeInt(1);
                             out.write(b); // write the message to output stream
                             out.flush();
                         } catch (IOException e) {
@@ -222,28 +232,5 @@ public class ToClipService extends Service {
         } catch (IOException e) {
             e.printStackTrace();
         }
-    }
-
-    private Bitmap receiveImage() {
-        ServerSocket socket = null;
-        Bitmap bitmap = null;
-        byte[] bytes = null;
-        try {
-            socket = new ServerSocket(1755);
-            Socket clientSocket = socket.accept();       //This is blocking. It will wait.
-            DataInputStream DIS = new DataInputStream(clientSocket.getInputStream());
-            DIS.read(bytes);
-            bitmap = BitmapFactory.decodeByteArray(bytes , 0, bytes.length);
-            clientSocket.close();
-            socket.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        return bitmap;
-    }
-
-    public void sendImage(Bitmap image, String fileName) {
-
     }
 }
